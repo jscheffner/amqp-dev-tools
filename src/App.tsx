@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
+import { useState } from 'react'
+import { invoke } from '@tauri-apps/api/tauri'
 import { Button } from '@/components/ui/button'
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [greetMsg, setGreetMsg] = useState('')
+  const [name, setName] = useState('')
 
   async function greet() {
-    setGreetMsg(await invoke("greet", { name }));
+    setGreetMsg(await invoke('greet', { name }))
   }
 
   return (
@@ -16,8 +16,8 @@ function App() {
 
       <form
         onSubmit={(e) => {
-          e.preventDefault();
-          greet();
+          e.preventDefault()
+          greet()
         }}
       >
         <input
@@ -30,7 +30,7 @@ function App() {
 
       <p>{greetMsg}</p>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
