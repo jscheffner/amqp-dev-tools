@@ -30,7 +30,6 @@ export function useConnection(url: string) {
   useEffect(() => {
     const unlisten = listen('amqp:disconnected', ({ payload }) => {
       if (payload != null) {
-        console.log({ err: payload })
         setError(payload ?? 'Unexpected Error')
       } else {
         setError(undefined)

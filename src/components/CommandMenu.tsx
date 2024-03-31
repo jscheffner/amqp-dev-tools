@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useState } from 'react'
 import { DeclareExchangeDialog } from './DeclareExchangeDialog'
 import {
   CommandDialog,
@@ -9,7 +9,10 @@ import {
   CommandList,
 } from './ui/command'
 
-export function CommandMenu(props: { isConnected: boolean }) {
+export function CommandMenu(props: {
+  isConnected: boolean
+  onAddDevTool: Dispatch<SetStateAction<'publisher'>>
+}) {
   const [open, setOpen] = useState(false)
   const [isDeclareExchangeDialogOpen, setIsDeclareExchangeDialogOpen] =
     useState(false)
@@ -35,6 +38,16 @@ export function CommandMenu(props: { isConnected: boolean }) {
         <CommandInput placeholder="Type a command..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Dev Tools">
+            <CommandItem
+              onSelect={() => {
+                props.onAddDevTool('publisher')
+                setOpen(false)
+              }}
+            >
+              Add Publisher
+            </CommandItem>
+          </CommandGroup>
           <CommandGroup heading="AMQP">
             <CommandItem
               disabled={!props.isConnected}
