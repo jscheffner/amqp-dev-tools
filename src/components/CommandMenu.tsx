@@ -8,10 +8,11 @@ import {
   CommandItem,
   CommandList,
 } from './ui/command'
+import { DevToolType } from '@/App'
 
 export function CommandMenu(props: {
   isConnected: boolean
-  onAddDevTool: Dispatch<SetStateAction<'publisher'>>
+  onAddDevTool: (type: DevToolType) => void
 }) {
   const [open, setOpen] = useState(false)
   const [isDeclareExchangeDialogOpen, setIsDeclareExchangeDialogOpen] =
@@ -46,6 +47,14 @@ export function CommandMenu(props: {
               }}
             >
               Add Publisher
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                props.onAddDevTool('recorder')
+                setOpen(false)
+              }}
+            >
+              Add Recorder
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="AMQP">
