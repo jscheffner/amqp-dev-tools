@@ -1,7 +1,15 @@
-# Tauri + React + Typescript
+# AMQP Dev Tools 🐰
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A Desktop App for debugging and testing when working with AMQP.
 
-## Recommended IDE Setup
+**It's still work in progress and there is no stable release yet.**
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Usage
+
+Press <kbd>⌘</kbd> + <kbd>K</kbd> to do anything.
+
+## Features
+
+* A **Publisher** allows you to publish messages to exchanges
+* A **Recorder** consumes messages from an exchange and lets you filter them using Regex
+* Command to **declare exchanges**
