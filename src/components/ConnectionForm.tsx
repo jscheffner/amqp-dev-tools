@@ -1,17 +1,21 @@
-import { Dispatch, SetStateAction, useEffect, useState } from 'react'
+import { Dispatch, useEffect } from 'react'
 import { useConnection } from '@/hooks/connection'
 import { toast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 export function ConnectionForm(props: {
-  onConnectionChange: Dispatch<SetStateAction<boolean>>
+  onConnectionChange: Dispatch<boolean>
 }) {
-  const [connectionString, setConnectionString] = useState(
-    'amqp://127.0.0.1:5672',
-  )
-  const { isConnected, isLoading, error, connect, disconnect } =
-    useConnection(connectionString)
+  const {
+    isConnected,
+    isLoading,
+    error,
+    connectionString,
+    setConnectionString,
+    connect,
+    disconnect,
+  } = useConnection('amqp://127.0.0.1:5672')
 
   useEffect(() => {
     props.onConnectionChange(isConnected)

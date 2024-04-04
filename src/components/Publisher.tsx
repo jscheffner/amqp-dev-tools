@@ -8,8 +8,15 @@ import { Button } from './ui/button'
 import { TrashIcon } from 'lucide-react'
 import { Textarea } from './ui/textarea'
 import { invoke } from '@tauri-apps/api/tauri'
+import { type PublisherDefinition } from '@/hooks/dev-tools'
+import { Dispatch } from 'react'
 
-export function Publisher(props: { disabled: boolean; onDelete: () => void }) {
+export function Publisher(props: {
+  disabled: boolean
+  onDelete: () => void
+  definition: PublisherDefinition
+  onUpdate: Dispatch<PublisherDefinition>
+}) {
   const send = (exchangeName: string, routingKey: string, message: string) => {
     return invoke('amqp_publish', { message, exchangeName, routingKey })
   }
@@ -23,14 +30,22 @@ export function Publisher(props: { disabled: boolean; onDelete: () => void }) {
   type FormData = z.infer<typeof schema>
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: props.definition,
+  })
+
+  form.watch(({ message, ...data }) => {
+    props.onUpdate({ ...props.definition, ...data })
   })
 
   return (
     <Card className="w-[300px]">
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(({ exchange, routingKey, message }) =>
-            send(exchange, routingKey, message),
+          onSubmit={form.handleSubmit(
+            async ({ exchange, routingKey, message }) => {
+              await send(exchange, routingKey, message)
+              form.setValue('message', '')
+            },
           )}
           className="m-4"
         >

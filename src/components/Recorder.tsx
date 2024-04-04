@@ -8,10 +8,14 @@ import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { RecordedMessages } from './RecordedMessages'
 import { TrashIcon } from 'lucide-react'
+import { RecorderDefinition } from '@/hooks/dev-tools'
+import { Dispatch } from 'react'
 
 export function Recorder(props: {
   disabled: boolean
   id: string
+  definition: RecorderDefinition
+  onUpdate: Dispatch<RecorderDefinition>
   onDelete: () => void
 }) {
   const schema = z.object({
@@ -21,6 +25,11 @@ export function Recorder(props: {
   type FormData = z.infer<typeof schema>
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: props.definition,
+  })
+
+  form.watch((data) => {
+    props.onUpdate({ ...props.definition, ...data })
   })
 
   const { startRecording, stopRecording, messages, isRecording } = useRecorder(

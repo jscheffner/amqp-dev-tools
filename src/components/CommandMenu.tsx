@@ -8,7 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from './ui/command'
-import { DevToolType } from '@/App'
+import { DevToolType } from '@/hooks/dev-tools'
 
 export function CommandMenu(props: {
   isConnected: boolean
