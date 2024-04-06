@@ -9,11 +9,11 @@ use lapin::options::{
     BasicAckOptions, BasicCancelOptions, BasicConsumeOptions, BasicPublishOptions,
     QueueBindOptions, QueueDeclareOptions, QueueDeleteOptions,
 };
+use lapin::BasicProperties;
 use lapin::{
     options::ExchangeDeclareOptions, types::FieldTable, Connection, ConnectionProperties,
     ExchangeKind,
 };
-use lapin::{BasicProperties, Channel};
 use serde_json::json;
 use tauri::async_runtime::Mutex;
 use tauri::{Manager, State};
@@ -35,14 +35,12 @@ impl serde::Serialize for Error {
 
 #[derive(Default)]
 struct AmqpConnection(Mutex<Option<Connection>>);
-struct AmqpChannel(Mutex<Option<Channel>>);
 struct AmqpQueues(Mutex<HashSet<String>>);
 
 #[tauri::command]
 async fn amqp_connect(
     app: tauri::AppHandle,
     amqp_connection: State<'_, AmqpConnection>,
-    amqp_channel: State<'_, AmqpChannel>,
     connection_string: String,
 ) -> Result<(), Error> {
     let connection =
@@ -51,9 +49,8 @@ async fn amqp_connect(
     connection.on_error(move |err| {
         let _ = app.emit_all("amqp:disconnected", err.to_string());
     });
-    let channel = connection.create_channel().await?;
+    let _channel = connection.create_channel().await?;
     *amqp_connection.0.lock().await = Some(connection);
-    *amqp_channel.0.lock().await = Some(channel);
     Ok(())
 }
 
@@ -61,11 +58,11 @@ async fn amqp_connect(
 async fn amqp_disconnect(
     app: tauri::AppHandle,
     amqp_connection: State<'_, AmqpConnection>,
-    amqp_channel: State<'_, AmqpChannel>,
     declared_queues: State<'_, AmqpQueues>,
 ) -> Result<(), Error> {
-    let channel_guard = amqp_channel.0.lock().await;
-    let ch = channel_guard.as_ref().unwrap();
+    let mut connection_guard = amqp_connection.0.lock().await;
+    let connection = connection_guard.as_ref().unwrap();
+    let ch = connection.create_channel().await?;
     let mut queues = declared_queues.0.lock().await;
     for queue in queues.drain() {
         println!("Deleting queue {}", &queue);
@@ -73,19 +70,20 @@ async fn amqp_disconnect(
             .queue_delete(&queue, QueueDeleteOptions::default())
             .await?;
     }
-    *amqp_connection.0.lock().await = None;
+    *connection_guard = None;
     let _ = app.emit_all("amqp:disconnected", ());
     Ok(())
 }
 
 #[tauri::command]
 async fn amqp_declare_exchange(
-    amqp_channel: State<'_, AmqpChannel>,
+    amqp_connection: State<'_, AmqpConnection>,
     exchange_name: String,
     exchange_type: ExchangeKind,
 ) -> Result<(), Error> {
-    let channel_guard = amqp_channel.0.lock().await;
-    let ch = channel_guard.as_ref().unwrap();
+    let connection_guard = amqp_connection.0.lock().await;
+    let connection = connection_guard.as_ref().unwrap();
+    let ch = connection.create_channel().await?;
     let _ = ch
         .exchange_declare(
             exchange_name.as_str(),
@@ -99,13 +97,14 @@ async fn amqp_declare_exchange(
 
 #[tauri::command]
 async fn amqp_publish(
-    amqp_channel: State<'_, AmqpChannel>,
+    amqp_connection: State<'_, AmqpConnection>,
     exchange_name: String,
     routing_key: String,
     message: String,
 ) -> Result<(), Error> {
-    let channel_guard = amqp_channel.0.lock().await;
-    let ch = channel_guard.as_ref().unwrap();
+    let connection_guard = amqp_connection.0.lock().await;
+    let connection = connection_guard.as_ref().unwrap();
+    let ch = connection.create_channel().await?;
     let _ = ch
         .basic_publish(
             exchange_name.as_str(),
@@ -121,14 +120,15 @@ async fn amqp_publish(
 #[tauri::command]
 async fn amqp_consume(
     app: tauri::AppHandle,
-    amqp_channel: State<'_, AmqpChannel>,
+    amqp_connection: State<'_, AmqpConnection>,
     declared_queues: State<'_, AmqpQueues>,
     exchange: String,
     routing_key: String,
     id: String,
 ) -> Result<(), Error> {
-    let channel_guard = amqp_channel.0.lock().await;
-    let ch = channel_guard.as_ref().unwrap();
+    let connection_guard = amqp_connection.0.lock().await;
+    let connection = connection_guard.as_ref().unwrap();
+    let ch = connection.create_channel().await?;
     let queue_name = format!("amqp-dev-tools:recorder:{}", id);
     let _queue = ch
         .queue_declare(
@@ -186,12 +186,13 @@ async fn amqp_consume(
 
 #[tauri::command]
 async fn amqp_stop_consuming(
-    amqp_channel: State<'_, AmqpChannel>,
+    amqp_connection: State<'_, AmqpConnection>,
     declared_queues: State<'_, AmqpQueues>,
     id: String,
 ) -> Result<(), Error> {
-    let channel_guard = amqp_channel.0.lock().await;
-    let ch = channel_guard.as_ref().unwrap();
+    let connection_guard = amqp_connection.0.lock().await;
+    let connection = connection_guard.as_ref().unwrap();
+    let ch = connection.create_channel().await?;
     let queue_name = format!("amqp-dev-tools:recorder:{}", id);
     declared_queues.0.lock().await.remove(queue_name.as_str());
     let _ = ch
@@ -204,7 +205,6 @@ async fn amqp_stop_consuming(
 fn main() {
     tauri::Builder::default()
         .manage(AmqpConnection(Default::default()))
-        .manage(AmqpChannel(Default::default()))
         .manage(AmqpQueues(Default::default()))
         .invoke_handler(tauri::generate_handler![
             amqp_connect,
