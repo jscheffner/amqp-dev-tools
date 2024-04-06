@@ -10,6 +10,8 @@ import { Textarea } from './ui/textarea'
 import { invoke } from '@tauri-apps/api/tauri'
 import { type PublisherDefinition } from '@/hooks/dev-tools'
 import { Dispatch } from 'react'
+import { toast } from './ui/use-toast'
+import { toResult } from '@/lib/utils'
 
 export function Publisher(props: {
   disabled: boolean
@@ -17,12 +19,21 @@ export function Publisher(props: {
   definition: PublisherDefinition
   onUpdate: Dispatch<PublisherDefinition>
 }) {
-  const send = (exchangeName: string, routingKey: string, message: string) => {
-    return invoke('amqp_publish', { message, exchangeName, routingKey })
+  const onSubmit = async (formData: FormData) => {
+    const { ok, err } = await toResult(invoke('amqp_publish', formData))
+    if (ok) {
+      form.setValue('message', '')
+    } else {
+      toast({
+        title: 'Could not publish message!',
+        description: err as string,
+        variant: 'destructive',
+      })
+    }
   }
 
   const schema = z.object({
-    exchange: z.string(),
+    exchangeName: z.string(),
     routingKey: z.string(),
     message: z.string(),
   })
@@ -40,15 +51,7 @@ export function Publisher(props: {
   return (
     <Card className="w-[300px]">
       <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(
-            async ({ exchange, routingKey, message }) => {
-              await send(exchange, routingKey, message)
-              form.setValue('message', '')
-            },
-          )}
-          className="m-4"
-        >
+        <form onSubmit={form.handleSubmit(onSubmit)} className="m-4">
           <div className="flex justify-between">
             <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
               Publisher
@@ -59,7 +62,7 @@ export function Publisher(props: {
           </div>
           <FormField
             control={form.control}
-            name="exchange"
+            name="exchangeName"
             render={({ field }) => (
               <FormItem className="my-4">
                 <FormLabel>Exchange</FormLabel>

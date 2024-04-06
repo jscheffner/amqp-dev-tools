@@ -107,7 +107,7 @@ async fn amqp_publish(
             BasicProperties::default(),
         )
         .await
-        .map_err(|err| err.to_string());
+        .map_err(|err| err.to_string())?;
     Ok(())
 }
 

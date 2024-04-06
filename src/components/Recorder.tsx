@@ -10,6 +10,7 @@ import { RecordedMessages } from './RecordedMessages'
 import { TrashIcon } from 'lucide-react'
 import { RecorderDefinition } from '@/hooks/dev-tools'
 import { Dispatch } from 'react'
+import { toast } from './ui/use-toast'
 
 export function Recorder(props: {
   disabled: boolean
@@ -36,16 +37,33 @@ export function Recorder(props: {
     props.id,
   )
 
+  async function onStart({ exchange, routingKey }: FormData) {
+    const { ok, err } = await startRecording(exchange, routingKey)
+    if (!ok) {
+      toast({
+        title: 'Could not start recording!',
+        description: err as string,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  async function onStop() {
+    const { ok, err } = await stopRecording()
+    if (!ok) {
+      toast({
+        title: 'Could not stop recording!',
+        description: err as string,
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <>
       <Card>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(({ exchange, routingKey }) =>
-              startRecording(exchange, routingKey),
-            )}
-            className="m-4"
-          >
+          <form onSubmit={form.handleSubmit(onStart)} className="m-4">
             <div className="flex justify-between">
               <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
                 Recorder
@@ -89,7 +107,7 @@ export function Recorder(props: {
                   type="button"
                   className="my-4"
                   disabled={props.disabled}
-                  onClick={stopRecording}
+                  onClick={onStop}
                 >
                   Stop Recording
                 </Button>

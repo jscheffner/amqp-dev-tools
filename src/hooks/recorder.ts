@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
+import { toResult } from '@/lib/utils'
 
 export type AmqpMessage = {
   body: string
@@ -11,13 +12,21 @@ export function useRecorder(id: string) {
   const [isRecording, setIsRecording] = useState(false)
 
   const startRecording = async (exchange: string, routingKey?: string) => {
-    await invoke('amqp_consume', { id, exchange, routingKey })
-    setIsRecording(true)
+    const res = await toResult(
+      invoke('amqp_consume', { id, exchange, routingKey }),
+    )
+    if (res.ok) {
+      setIsRecording(true)
+    }
+    return res
   }
 
   const stopRecording = async () => {
-    await invoke('amqp_stop_consuming', { id })
-    setIsRecording(false)
+    const res = await toResult(invoke('amqp_stop_consuming', { id }))
+    if (res.ok) {
+      setIsRecording(false)
+    }
+    return res
   }
 
   useEffect(() => {

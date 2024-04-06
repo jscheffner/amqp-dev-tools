@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
+import { toResult } from '@/lib/utils'
 
 const LOCAL_STORAGE_KEY = 'connection-string'
 
@@ -15,17 +16,13 @@ export function useConnection(defaultConnectionString: string) {
 
   const connect = async () => {
     setIsLoading(true)
-    try {
-      await invoke('amqp_connect', { connectionString })
-      setError(undefined)
+    const res = await toResult(invoke('amqp_connect', { connectionString }))
+    setIsLoading(false)
+    setError(res.err)
+    if (res.ok) {
       setIsConnected(true)
-      return { ok: true }
-    } catch (err) {
-      setError(err)
-      return { ok: false, err }
-    } finally {
-      setIsLoading(false)
     }
+    return res
   }
 
   const disconnect = () => {
