@@ -18,6 +18,21 @@ use serde_json::json;
 use tauri::async_runtime::Mutex;
 use tauri::{Manager, State};
 
+#[derive(Debug, thiserror::Error)]
+enum Error {
+    #[error(transparent)]
+    Lapin(#[from] lapin::Error),
+}
+
+impl serde::Serialize for Error {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_ref())
+    }
+}
+
 #[derive(Default)]
 struct AmqpConnection(Mutex<Option<Connection>>);
 struct AmqpChannel(Mutex<Option<Channel>>);
@@ -29,19 +44,14 @@ async fn amqp_connect(
     amqp_connection: State<'_, AmqpConnection>,
     amqp_channel: State<'_, AmqpChannel>,
     connection_string: String,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let connection =
-        Connection::connect(connection_string.as_str(), ConnectionProperties::default())
-            .await
-            .map_err(|err| err.to_string())?;
+        Connection::connect(connection_string.as_str(), ConnectionProperties::default()).await?;
 
     connection.on_error(move |err| {
         let _ = app.emit_all("amqp:disconnected", err.to_string());
     });
-    let channel = connection
-        .create_channel()
-        .await
-        .map_err(|err| err.to_string())?;
+    let channel = connection.create_channel().await?;
     *amqp_connection.0.lock().await = Some(connection);
     *amqp_channel.0.lock().await = Some(channel);
     Ok(())
@@ -53,7 +63,7 @@ async fn amqp_disconnect(
     amqp_connection: State<'_, AmqpConnection>,
     amqp_channel: State<'_, AmqpChannel>,
     declared_queues: State<'_, AmqpQueues>,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let channel_guard = amqp_channel.0.lock().await;
     let ch = channel_guard.as_ref().unwrap();
     let mut queues = declared_queues.0.lock().await;
@@ -61,8 +71,7 @@ async fn amqp_disconnect(
         println!("Deleting queue {}", &queue);
         let _ = ch
             .queue_delete(&queue, QueueDeleteOptions::default())
-            .await
-            .map_err(|err| err.to_string())?;
+            .await?;
     }
     *amqp_connection.0.lock().await = None;
     let _ = app.emit_all("amqp:disconnected", ());
@@ -74,7 +83,7 @@ async fn amqp_declare_exchange(
     amqp_channel: State<'_, AmqpChannel>,
     exchange_name: String,
     exchange_type: ExchangeKind,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let channel_guard = amqp_channel.0.lock().await;
     let ch = channel_guard.as_ref().unwrap();
     let _ = ch
@@ -84,8 +93,7 @@ async fn amqp_declare_exchange(
             ExchangeDeclareOptions::default(),
             FieldTable::default(),
         )
-        .await
-        .map_err(|err| err.to_string());
+        .await?;
     Ok(())
 }
 
@@ -95,7 +103,7 @@ async fn amqp_publish(
     exchange_name: String,
     routing_key: String,
     message: String,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let channel_guard = amqp_channel.0.lock().await;
     let ch = channel_guard.as_ref().unwrap();
     let _ = ch
@@ -106,8 +114,7 @@ async fn amqp_publish(
             message.as_bytes(),
             BasicProperties::default(),
         )
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
     Ok(())
 }
 
@@ -119,7 +126,7 @@ async fn amqp_consume(
     exchange: String,
     routing_key: String,
     id: String,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let channel_guard = amqp_channel.0.lock().await;
     let ch = channel_guard.as_ref().unwrap();
     let queue_name = format!("amqp-dev-tools:recorder:{}", id);
@@ -132,8 +139,7 @@ async fn amqp_consume(
             },
             FieldTable::default(),
         )
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
     declared_queues.0.lock().await.insert(queue_name.clone());
 
     let _ = ch
@@ -144,8 +150,7 @@ async fn amqp_consume(
             QueueBindOptions::default(),
             FieldTable::default(),
         )
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
     let consumer = ch
         .basic_consume(
             &queue_name,
@@ -153,8 +158,7 @@ async fn amqp_consume(
             BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
     let ch = ch.clone();
     consumer.set_delegate(move |delivery: DeliveryResult| {
         let app = app.clone();
@@ -185,15 +189,14 @@ async fn amqp_stop_consuming(
     amqp_channel: State<'_, AmqpChannel>,
     declared_queues: State<'_, AmqpQueues>,
     id: String,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let channel_guard = amqp_channel.0.lock().await;
     let ch = channel_guard.as_ref().unwrap();
     let queue_name = format!("amqp-dev-tools:recorder:{}", id);
     declared_queues.0.lock().await.remove(queue_name.as_str());
     let _ = ch
         .queue_delete(&queue_name, QueueDeleteOptions::default())
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
 
     Ok(())
 }
