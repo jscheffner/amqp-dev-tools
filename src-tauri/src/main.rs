@@ -106,6 +106,17 @@ async fn amqp_publish(
     let connection = connection_guard.as_ref().unwrap();
     let ch = connection.create_channel().await?;
     let _ = ch
+        .exchange_declare(
+            exchange_name.as_str(),
+            ExchangeKind::default(),
+            ExchangeDeclareOptions {
+                passive: true,
+                ..ExchangeDeclareOptions::default()
+            },
+            FieldTable::default(),
+        )
+        .await?;
+    let _ = ch
         .basic_publish(
             exchange_name.as_str(),
             routing_key.as_str(),
